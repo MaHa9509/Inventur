@@ -4,7 +4,7 @@
  * Excel: ExcelJS (lokal in vendor/, wird erst bei Bedarf geladen)
  */
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const NO_TEAM = 'Gemeinschaftlich/ohne Team';
 

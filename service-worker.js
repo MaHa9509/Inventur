@@ -1,6 +1,6 @@
 /* Offline-Cache der Büro-Inventur.
  * Bei jeder Änderung an den App-Dateien VERSION erhöhen, damit die Handys die neue Version laden. */
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const CACHE = 'buero-inventur-' + VERSION;
 const ASSETS = [
   './',
@@ -16,7 +16,8 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' umgeht den Browser-Cache (GitHub Pages: max-age=600), sonst landen alte Dateien im neuen Cache
+  event.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
