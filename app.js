@@ -4,7 +4,7 @@
  * Excel: ExcelJS (lokal in vendor/, wird erst bei Bedarf geladen)
  */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const NO_TEAM = 'Gemeinschaftlich/ohne Team';
 
@@ -1359,9 +1359,25 @@ async function init() {
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('service-worker.js').catch(() => { /* offline-Cache nicht verfügbar */ });
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hadController) toast('Neue Version installiert – App bitte neu öffnen.');
+    let reg = null;
+    navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' })
+      .then(r => { reg = r; r.update().catch(() => {}); })
+      .catch(() => { /* offline-Cache nicht verfügbar */ });
+    // Auch beim Zurückwechseln in die App (iPhone startet sie dabei nicht neu) nach Updates schauen
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && reg && navigator.onLine) reg.update().catch(() => {});
+    });
+    let updateShown = false;
+    navigator.serviceWorker.addEventListener('controllerchange', async () => {
+      if (!hadController || updateShown) return;
+      updateShown = true;
+      if (currentView === 'form' && formDirty) { toast('Neue Version verfügbar – nach dem Speichern App neu öffnen.'); return; }
+      const go = await modal({
+        title: 'Neue Version verfügbar',
+        body: '<p>Die App wurde aktualisiert. Deine Daten bleiben erhalten.</p>',
+        buttons: [{ label: 'Jetzt aktualisieren', cls: 'primary', value: true }, { label: 'Später', value: false }],
+      });
+      if (go) location.reload();
     });
   }
 }

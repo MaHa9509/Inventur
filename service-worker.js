@@ -1,6 +1,6 @@
 /* Offline-Cache der Büro-Inventur.
  * Bei jeder Änderung an den App-Dateien VERSION erhöhen, damit die Handys die neue Version laden. */
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const CACHE = 'buero-inventur-' + VERSION;
 const ASSETS = [
   './',
