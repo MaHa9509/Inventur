@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f5fa8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Inventur">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <title>Büro-Inventur</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Büro-Inventur</h1>
+    <span id="device-badge" class="badge" hidden></span>
+  </header>
+
+  <main>
+    <!-- Ersteinrichtung -->
+    <section id="view-setup" class="view" hidden>
+      <div class="card">
+        <h2>Willkommen zur Büro-Inventur</h2>
+        <p>Richte dieses Handy einmalig ein. Danach funktioniert die App auch ohne Internet.</p>
+        <label class="field">
+          <span>Kürzel dieses Handys (nur Buchstaben)</span>
+          <input id="setup-prefix" type="text" maxlength="3" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="z. B. A">
+        </label>
+        <p class="hint warn"><strong>Wichtig:</strong> Jedes Handy braucht ein <em>eigenes</em> Kürzel (A, B, C …), sonst entstehen doppelte IDs. Notiert euch, wer welches Kürzel hat.</p>
+        <label class="field">
+          <span>Dein Name</span>
+          <input id="setup-name" type="text" autocomplete="name" placeholder="z. B. Max Mustermann">
+        </label>
+        <button id="setup-save" class="btn primary block">Los geht's</button>
+      </div>
+      <div class="card">
+        <h2>Neu installiert?</h2>
+        <p class="muted">Wenn du ein Backup (JSON-Datei) dieses Handys hast, kannst du es hier wiederherstellen.</p>
+        <label class="btn block">Backup wiederherstellen
+          <input id="setup-restore" type="file" accept=".json,application/json" hidden>
+        </label>
+      </div>
+    </section>
+
+    <!-- Liste -->
+    <section id="view-list" class="view" hidden>
+      <div id="backup-banner" class="banner" hidden></div>
+      <div class="searchbar">
+        <input id="search" type="search" placeholder="Suchen (ID, Modell, Person …)" autocomplete="off">
+        <button id="filter-toggle" class="btn small" type="button">Filter</button>
+      </div>
+      <div id="filters" class="filters" hidden>
+        <select id="flt-raum" aria-label="Raum"></select>
+        <select id="flt-team" aria-label="Team"></select>
+        <select id="flt-typ" aria-label="Gerätetyp"></select>
+        <select id="flt-status" aria-label="Status"></select>
+        <button id="flt-reset" class="btn small" type="button">Filter zurücksetzen</button>
+      </div>
+      <div id="list-count" class="count"></div>
+      <ul id="device-list" class="device-list"></ul>
+      <div id="list-empty" class="empty" hidden></div>
+    </section>
+
+    <!-- Räume / Grundriss -->
+    <section id="view-rooms" class="view" hidden>
+      <div id="rooms-progress" class="card progress-card"></div>
+      <p class="muted small">Tippe auf einen Raum, um seine Geräte zu sehen, ein Gerät zu erfassen oder den Raum als fertig zu markieren.</p>
+      <div id="plan" class="plan"></div>
+      <div id="legend" class="legend"></div>
+    </section>
+
+    <!-- Export / Import -->
+    <section id="view-export" class="view" hidden></section>
+
+    <!-- Einstellungen -->
+    <section id="view-settings" class="view" hidden></section>
+
+    <!-- Formular -->
+    <section id="view-form" class="view" hidden>
+      <form id="device-form" novalidate autocomplete="off">
+        <div class="form-head">
+          <div id="form-id" class="form-id"></div>
+          <div id="form-meta" class="muted small"></div>
+        </div>
+
+        <label class="field"><span class="req">Gerätetyp</span>
+          <select id="f-typ" name="typ"></select>
+        </label>
+        <div class="row">
+          <label class="field"><span>Hersteller</span>
+            <input id="f-hersteller" name="hersteller" list="dl-hersteller" autocapitalize="words">
+          </label>
+          <label class="field"><span>Modell</span>
+            <input id="f-modell" name="modell" list="dl-modell">
+          </label>
+        </div>
+        <label class="field"><span>Seriennummer</span>
+          <input id="f-seriennr" name="seriennr" autocapitalize="characters" autocorrect="off" spellcheck="false">
+        </label>
+        <div id="serial-warning" class="hint warn" hidden></div>
+        <label class="field"><span>Vorhandene Inventarnummer (optional)</span>
+          <input id="f-altInvNr" name="altInvNr" autocapitalize="characters" autocorrect="off" spellcheck="false">
+        </label>
+
+        <div class="field">
+          <span class="req">Raum</span>
+          <div class="row tight">
+            <select id="f-raum" name="raum"></select>
+            <button id="f-raum-plan" class="btn plan-btn" type="button">Grundriss</button>
+          </div>
+        </div>
+        <label class="field"><span>Arbeitsplatz</span>
+          <input id="f-arbeitsplatz" name="arbeitsplatz" list="dl-arbeitsplatz" placeholder="z. B. AP 3, Fenster links">
+        </label>
+        <label class="field"><span>Zugeordnete Person</span>
+          <input id="f-person" name="person" list="dl-person" autocapitalize="words">
+        </label>
+        <label class="field"><span>Team</span>
+          <select id="f-team" name="team"></select>
+        </label>
+        <label class="field"><span class="req">Status</span>
+          <select id="f-status" name="status"></select>
+        </label>
+        <div class="row">
+          <label class="field"><span>Kaufdatum</span>
+            <input id="f-kaufdatum" name="kaufdatum" type="date">
+          </label>
+          <label class="field"><span>Garantie bis</span>
+            <input id="f-garantie" name="garantie" type="date">
+          </label>
+        </div>
+        <label class="field"><span>Anmerkungen</span>
+          <textarea id="f-anmerkungen" name="anmerkungen" rows="3"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button id="form-save" class="btn primary block" type="submit">Speichern</button>
+          <button id="form-save-next" class="btn block" type="button">Speichern &amp; nächstes Gerät im selben Raum</button>
+          <div class="row">
+            <button id="form-cancel" class="btn" type="button">Abbrechen</button>
+            <button id="form-delete" class="btn danger" type="button">Löschen</button>
+          </div>
+        </div>
+      </form>
+      <datalist id="dl-hersteller"></datalist>
+      <datalist id="dl-modell"></datalist>
+      <datalist id="dl-arbeitsplatz"></datalist>
+      <datalist id="dl-person"></datalist>
+    </section>
+  </main>
+
+  <button id="fab" class="fab" type="button" aria-label="Neues Gerät erfassen" hidden>+</button>
+
+  <nav class="tabbar" id="tabbar" hidden>
+    <a href="#liste" data-view="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.2"/><circle cx="3.5" cy="12" r="1.2"/><circle cx="3.5" cy="18" r="1.2"/></svg>
+      Geräte
+    </a>
+    <a href="#raeume" data-view="rooms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="20" height="7"/><rect x="2" y="14" width="8" height="6"/><rect x="13" y="14" width="9" height="6"/></svg>
+      Räume
+    </a>
+    <a href="#export" data-view="export">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 13l6 5M15 13l-6 5"/></svg>
+      Excel
+    </a>
+    <a href="#einstellungen" data-view="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      Einstellungen
+    </a>
+  </nav>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
