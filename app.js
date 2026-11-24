@@ -4,7 +4,7 @@
  * Excel: ExcelJS (lokal in vendor/, wird erst bei Bedarf geladen)
  */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const NO_TEAM = 'Gemeinschaftlich/ohne Team';
 
@@ -21,35 +21,33 @@ const DEFAULT_TEAMS = [
   { name: NO_TEAM, color: '#E6E6E6' },
 ];
 
-const ROWS = [
-  { key: 'oben', label: 'Flur oben' },
-  { key: 'links', label: 'Unten links' },
-  { key: 'rechts', label: 'Unten rechts' },
-  { key: 'extra', label: 'Weitere Orte' },
-];
+// Draufsicht: Koordinaten aus dem Raumplan (x, y, Breite, Höhe in Plan-Einheiten)
+const PLAN = { w: 949, h: 316 };
+// gestrichelte Fläche ohne Raumnummer (nicht anklickbar)
+const PLAN_DECOR = [{ x: 511, y: 0, w: 72, h: 121 }];
 
-// Reihenfolge, Breite (w) und Darstellung wie im Raumplan
 const DEFAULT_ROOMS = [
-  { name: '4180', team: 'Team 1', row: 'oben', w: 1 },
-  { name: '4190', team: 'Team 2', row: 'oben', w: 1 },
-  { name: '4200', team: NO_TEAM, row: 'oben', w: 1 },
-  { name: '4220', team: 'Team 1', row: 'oben', w: 2 },
-  { name: '4240', team: 'Team 1', row: 'oben', w: 2 },
-  { name: '4260', team: 'Team 3', row: 'oben', w: 1 },
-  { name: '4270', team: 'Team 3', row: 'oben', w: 1 },
-  { name: '4280', team: 'Team 3', row: 'oben', w: 1 },
-  { name: '4290', team: 'Team 3', row: 'oben', w: 1 },
-  { name: '4300', team: 'Team 3', row: 'oben', w: 1 },
-  { name: '4170', team: 'Team 2', row: 'links', w: 1.6 },
-  { name: '4160', team: 'Team 2', row: 'links', w: 1.6 },
-  { name: '4150/4140', team: NO_TEAM, row: 'links', w: 1.3, dashed: true },
-  { name: '4120', team: NO_TEAM, row: 'rechts', w: 1, dashed: true },
-  { name: '4110', team: 'Team 1', row: 'rechts', w: 1 },
-  { name: '4100/4090', team: NO_TEAM, row: 'rechts', w: 2.6 },
-  { name: '4080', team: 'Team 4', row: 'rechts', w: 1 },
-  { name: '4070', team: 'Team 4', row: 'rechts', w: 1.6 },
-  { name: 'Lager / Sonstiges', team: NO_TEAM, row: 'extra', w: 2, dashed: true },
+  { name: '4180', team: 'Team 1', x: 0, y: 0, w: 72, h: 121 },
+  { name: '4190', team: 'Team 2', x: 72, y: 0, w: 73, h: 121 },
+  { name: '4200', team: NO_TEAM, x: 145, y: 0, w: 73, h: 121 },
+  { name: '4220', team: 'Team 1', x: 218, y: 0, w: 146, h: 121 },
+  { name: '4240', team: 'Team 1', x: 364, y: 0, w: 147, h: 121 },
+  { name: '4260', team: 'Team 3', x: 583, y: 0, w: 73, h: 121 },
+  { name: '4270', team: 'Team 3', x: 656, y: 0, w: 73, h: 121 },
+  { name: '4280', team: 'Team 3', x: 729, y: 0, w: 73, h: 121 },
+  { name: '4290', team: 'Team 3', x: 802, y: 0, w: 73, h: 121 },
+  { name: '4300', team: 'Team 3', x: 875, y: 0, w: 74, h: 121 },
+  { name: '4170', team: 'Team 2', x: 0, y: 195, w: 121, h: 121 },
+  { name: '4160', team: 'Team 2', x: 121, y: 195, w: 122, h: 121 },
+  { name: '4150/4140', team: NO_TEAM, x: 243, y: 195, w: 97, h: 121, dashed: true },
+  { name: '4120', team: NO_TEAM, x: 413, y: 195, w: 73, h: 121, dashed: true },
+  { name: '4110', team: 'Team 1', x: 486, y: 195, w: 73, h: 121 },
+  { name: '4100/4090', team: NO_TEAM, x: 559, y: 195, w: 195, h: 121 },
+  { name: '4080', team: 'Team 4', x: 754, y: 195, w: 73, h: 121 },
+  { name: '4070', team: 'Team 4', x: 827, y: 195, w: 122, h: 121 },
+  { name: 'Lager / Sonstiges', team: NO_TEAM, dashed: true },
 ];
+const inPlan = r => r && Number.isFinite(r.x) && Number.isFinite(r.y) && r.w > 0 && r.h > 0;
 
 // Spalten der Excel-Tabelle "Inventar" (Reihenfolge = Spaltenreihenfolge)
 const FIELDS = [
@@ -428,23 +426,31 @@ function roomCounts() {
 }
 function planHtml({ selected = '', showDone = true } = {}) {
   const counts = roomCounts();
-  return ROWS.map(row => {
-    const rooms = S.rooms.filter(r => (r.row || 'extra') === row.key);
-    if (!rooms.length) return '';
-    return `<div class="plan-row"><div class="plan-row-label">${esc(row.label)}</div><div class="plan-tiles">
-      ${rooms.map(r => {
-        const n = counts[r.name] || 0;
-        const done = showDone && S.roomsDone[r.name];
-        return `<button type="button" class="tile ${r.dashed ? 'dashed' : ''} ${selected === r.name ? 'selected' : ''}"
-          style="--c:${esc(teamColor(r.team))};--w:${Number(r.w) || 1}" data-room="${esc(r.name)}"
-          aria-label="Raum ${esc(r.name)}, ${n} Geräte${done ? ', fertig erfasst' : ''}">
-          <span class="tile-name">${esc(r.name)}</span>
-          <span class="tile-count">${n ? plural(n, 'Gerät', 'Geräte') : '–'}</span>
-          ${done ? '<span class="done-mark">✓</span>' : ''}
-        </button>`;
-      }).join('')}
+  const pos = r => `left:${r.x / PLAN.w * 100}%;top:${r.y / PLAN.h * 100}%;width:${r.w / PLAN.w * 100}%;height:${r.h / PLAN.h * 100}%`;
+  const tile = (r, style, compact) => {
+    const n = counts[r.name] || 0;
+    const done = showDone && S.roomsDone[r.name];
+    return `<button type="button" class="tile ${r.dashed ? 'dashed' : ''} ${selected === r.name ? 'selected' : ''}"
+      style="--c:${esc(teamColor(r.team))};${style}" data-room="${esc(r.name)}"
+      aria-label="Raum ${esc(r.name)}, ${n} Geräte${done ? ', fertig erfasst' : ''}">
+      <span class="tile-name">${esc(r.name)}</span>
+      <span class="tile-count">${n ? (compact ? String(n) : plural(n, 'Gerät', 'Geräte')) : '–'}</span>
+      ${done ? '<span class="done-mark">✓</span>' : ''}
+    </button>`;
+  };
+  const placed = S.rooms.filter(inPlan);
+  const others = S.rooms.filter(r => !inPlan(r));
+  let html = '';
+  if (placed.length) {
+    html += `<div class="plan-scroll"><div class="plan-map">
+      ${PLAN_DECOR.map(d => `<div class="plan-decor" style="${pos(d)}"></div>`).join('')}
+      ${placed.map(r => tile(r, pos(r), true)).join('')}
     </div></div>`;
-  }).join('');
+  }
+  if (others.length) {
+    html += `<div><div class="plan-row-label">Weitere Orte</div><div class="plan-tiles">${others.map(r => tile(r, '', false)).join('')}</div></div>`;
+  }
+  return html;
 }
 function legendHtml() {
   return S.teams.map(t => `<span><i style="background:${esc(t.color)}"></i>${esc(t.name)}</span>`).join('') +
@@ -722,7 +728,7 @@ async function buildWorkbook(list) {
   const raumCol = colOf('raum');
   for (const r of S.rooms) {
     const row = rs.addRow({
-      raum: r.name, team: r.team || '', reihe: (ROWS.find(x => x.key === r.row) || ROWS[3]).label,
+      raum: r.name, team: r.team || '', reihe: inPlan(r) ? 'Grundriss' : 'Weitere Orte',
       anzahl: { formula: `COUNTIF(Inventar!${raumCol}:${raumCol},"${crit(r.name)}")`, result: count('raum', r.name) },
       fertig: S.roomsDone[r.name] ? 'Ja' : 'Nein',
     });
@@ -862,7 +868,8 @@ async function parseImportFile(file) {
       if (!name) return;
       const team = hm['team'] ? String(cellText(row.getCell(hm['team']).value)).trim() : '';
       const area = hm['bereich'] ? String(cellText(row.getCell(hm['bereich']).value)).trim() : '';
-      out.rooms.push({ name, team, row: (ROWS.find(x => x.label === area) || ROWS[3]).key });
+      void area;
+      out.rooms.push({ name, team });
       if (hm['fertig erfasst'] && /^ja$/i.test(String(cellText(row.getCell(hm['fertig erfasst']).value)).trim())) out.roomsDone[name] = nowIso();
     });
   }
@@ -939,13 +946,13 @@ async function importFiles(fileList) {
     for (const p of parsed) {
       for (const t of p.teams || []) if (t.name && !S.teams.some(x => x.name === t.name)) { S.teams.push({ name: t.name, color: t.color || '#E6E6E6' }); settingsChanged = true; }
       for (const r of p.rooms || []) {
-        if (r.name && !roomByName(r.name)) { S.rooms.push({ name: r.name, team: r.team || NO_TEAM, row: r.row || 'extra', w: r.w || 1, dashed: !!r.dashed }); settingsChanged = true; }
+        if (r.name && !roomByName(r.name)) { S.rooms.push(Object.assign({ name: r.name, team: r.team || NO_TEAM }, inPlan(r) ? { x: r.x, y: r.y, w: r.w, h: r.h } : {}, r.dashed ? { dashed: true } : {})); settingsChanged = true; }
       }
       for (const name in p.roomsDone || {}) if (!S.roomsDone[name]) { S.roomsDone[name] = p.roomsDone[name]; settingsChanged = true; }
     }
     for (const r of recs) {
       if (r.team && !S.teams.some(x => x.name === r.team)) { S.teams.push({ name: r.team, color: '#E6E6E6' }); settingsChanged = true; }
-      if (r.raum && !roomByName(r.raum)) { S.rooms.push({ name: r.raum, team: r.team || NO_TEAM, row: 'extra', w: 1 }); settingsChanged = true; }
+      if (r.raum && !roomByName(r.raum)) { S.rooms.push({ name: r.raum, team: r.team || NO_TEAM }); settingsChanged = true; }
       if (r.typ && !S.types.includes(r.typ)) { S.types.push(r.typ); settingsChanged = true; }
     }
     if (settingsChanged) await saveSettings();
@@ -990,7 +997,6 @@ async function renderSettings() {
   let persisted = null;
   try { persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; } catch (_) { /* egal */ }
   const teamOpts = sel => S.teams.map(t => `<option value="${esc(t.name)}" ${t.name === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
-  const rowOpts = sel => ROWS.map(r => `<option value="${r.key}" ${r.key === (sel || 'extra') ? 'selected' : ''}>${esc(r.label)}</option>`).join('');
   $('#view-settings').innerHTML = `
     <div class="card">
       <h2>Dieses Handy</h2>
@@ -1001,11 +1007,10 @@ async function renderSettings() {
 
     <div class="card">
       <h2>Räume</h2>
-      <p class="muted small">Team-Zuordnung und Bereich im Grundriss. Das Team wird beim Erfassen automatisch vorgeschlagen.</p>
+      <p class="muted small">Team-Zuordnung je Raum. Neue Räume erscheinen unter „Weitere Orte“. Das Team wird beim Erfassen automatisch vorgeschlagen.</p>
       <ul class="set-list">${S.rooms.map((r, i) => `<li class="room-item">
-        <span class="room-name">${esc(r.name)}</span>
+        <span class="room-name">${esc(r.name)} <span class="muted small" style="font-weight:400">${inPlan(r) ? '· im Grundriss' : '· weitere Orte'}</span></span>
         <select data-room-team="${i}" aria-label="Team für Raum ${esc(r.name)}">${teamOpts(r.team)}</select>
-        <select data-room-row="${i}" aria-label="Bereich für Raum ${esc(r.name)}">${rowOpts(r.row)}</select>
         <button type="button" class="icon-btn" data-del-room="${i}" aria-label="Raum ${esc(r.name)} entfernen">×</button>
       </li>`).join('')}</ul>
       <div class="add-row">
@@ -1248,7 +1253,7 @@ function bindEvents() {
       const name = $('#new-room').value.trim();
       if (!name) return;
       if (roomByName(name)) { toast('Raum existiert bereits'); return; }
-      S.rooms.push({ name, team: $('#new-room-team').value, row: 'extra', w: 1 });
+      S.rooms.push({ name, team: $('#new-room-team').value });
     } else if (act === 'add-team') {
       const name = $('#new-team').value.trim();
       if (!name) return;
@@ -1313,7 +1318,6 @@ function bindEvents() {
       return;
     }
     if (t.dataset.roomTeam != null) S.rooms[+t.dataset.roomTeam].team = t.value;
-    else if (t.dataset.roomRow != null) S.rooms[+t.dataset.roomRow].row = t.value;
     else if (t.dataset.teamColor != null) S.teams[+t.dataset.teamColor].color = t.value;
     else return;
     await saveSettings();
@@ -1326,6 +1330,18 @@ async function requestPersist() {
 }
 
 /* ---------------- Start ---------------- */
+// Ältere Versionen hatten "Flure" statt Draufsicht: Plan-Koordinaten nachrüsten, Team-Zuordnung behalten
+function migrateRooms() {
+  let changed = false;
+  for (const r of S.rooms) {
+    if ('row' in r) { delete r.row; changed = true; }
+    const d = DEFAULT_ROOMS.find(x => x.name === r.name);
+    if (d && inPlan(d) && !inPlan(r)) { Object.assign(r, { x: d.x, y: d.y, w: d.w, h: d.h }); changed = true; }
+    else if (!inPlan(r) && 'w' in r) { delete r.w; changed = true; }
+  }
+  return changed;
+}
+
 async function init() {
   try {
     await DB.open();
@@ -1335,6 +1351,7 @@ async function init() {
   }
   S = (await DB.get('meta', 'settings')) || defaultSettings();
   S = Object.assign(defaultSettings(), S);
+  if (migrateRooms()) await saveSettings();
   for (const d of await DB.getAll('devices')) devices.set(d.id, d);
   bindEvents();
   if (S.prefix) requestPersist();
